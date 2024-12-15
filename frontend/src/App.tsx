@@ -7,8 +7,7 @@ function App() {
   useEffect(() => {
     axios.get("http://localhost:8000/")
       .then(res => {
-          console.log(res.data)
-          setData(res.data)
+           setData(res.data)
       })
       .catch(err => {
         console.error(err)
@@ -16,9 +15,11 @@ function App() {
   },[])
 
   return (
-    <>
-      {data}
-    </>
+    <div className='p-10'>
+      <p className='text-white'>{data}</p>
+      <h1 className='text-red-100 text-xl font-semibold' >Welcome to Meetcode</h1>
+      <button className='bg-blue-600 text-white px-2 py-1 rounded-sm hover:scale-105 transition-transform duration-200 outline-none'>Create new meet</button>
+    </div>
   )
 }
 

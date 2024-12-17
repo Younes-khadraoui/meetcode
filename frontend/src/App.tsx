@@ -1,30 +1,22 @@
-import { useEffect, useState } from 'react'
-import axios from 'axios'
+import { useEffect, useState } from "react";
 
 function App() {
-  const [data, setData] = useState("")
-  const [ws , setWs] = useState<WebSocket>()
-  const [input, setInput] = useState("");
-
-  useEffect(() => {
-    axios.get("http://localhost:8000/")
-      .then(res => {
-           setData(res.data)
-      })
-      .catch(err => {
-        console.error(err)
-      })
-  },[])
+  const [ws, setWs] = useState<WebSocket>()
+  const [meetURL, setMeetURL] = useState<string>("")
 
   useEffect(() => {
     const socket = new WebSocket("ws://localhost:8000/ws")
 
     socket.onopen = () => {
-      console.log("socket opened")
-    }
+      console.log("socket opened");
+    };
 
-    socket.onmessage = (event) => {
-      console.log("Message received:", event.data);
+    socket.onmessage = (e) => {
+      const message = JSON.parse(e.data);
+      if (message.action == "MEETING_CREATED")
+        setMeetURL(message.sessionURL)
+      else 
+        console.error("Bad response from server cant create meeting")
     };
 
     socket.onerror = (error) => {
@@ -40,37 +32,37 @@ function App() {
     return () => {
       socket.close();
     };
-  },[])
+  }, []);
 
-  const sendMessage = () => {
+  const createNewMeet = () => {
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(input);
-      setInput("");
-    } else {
-      console.log("WebSocket is not open");
+      ws.send(JSON.stringify({
+        "action" : "CREATE_MEETING",
+        "host": createRandomYounes
+      }))
     }
-  };
+  }
 
-
+  const createRandomYounes = () => {
+    const rand_num = Math.random()
+    return "younes" + rand_num
+  }
 
   return (
-    <div className='p-10'>
-      <p className=''>{data}</p>
-      <h1 className='text-red-100 text-xl font-semibold' >Welcome to Meetcode</h1>
-      <button className='bg-blue-600 px-2 py-1 rounded-sm hover:scale-105 transition-transform duration-200 outline-none'>Create new meet</button>
-      <div>
-      <h1>WebSocket Test</h1>
-      <input
-        type="text"
-        value={input}
-        onChange={(e) => setInput(e.target.value)}
-        placeholder="Type a message"
-        className='text-black'
-      />
-      <button onClick={sendMessage}>Send</button>
+    <div className="p-10">
+      <h1 className="text-red-100 text-xl font-semibold">
+        Welcome to Meetcode
+      </h1>
+      <button 
+          onClick={createNewMeet}
+          className="bg-blue-600 px-2 py-1 rounded-sm hover:scale-105 transition-transform duration-200 outline-none">
+        Create new meet
+      </button>
+      {
+        meetURL && <p>meet create at {meetURL}</p>
+      }
     </div>
-    </div>
-  )
+  );
 }
 
-export default App
+export default App;

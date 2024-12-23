@@ -43,9 +43,7 @@ func main() {
 
 	server.GET("/", handleRoot)
 
-	server.GET("/ws", wsHandler)
-
-	server.GET("/ws/:id", wsHandler)
+	server.GET("/session", wsHandler)
 
 	server.Logger.Fatal(server.Start(":8000"))
 }
@@ -60,20 +58,34 @@ func wsHandler(c echo.Context) error {
 		log.Println(err)
 		return nil
 	}
-
 	defer conn.Close()
 
 	for {
 		var msg = make(map[string]string)
 		err := conn.ReadJSON(&msg)
 		if err != nil {
-			log.Fatal("Cant read client message")
+			log.Println("Cant read client message", err)
+			break
 		}
 
 		if msg["action"] == "CREATE_MEETING" {
-			sessionID := generateSessionID()
+			if msg["host"] == "" {
+				res := map[string]string{
+					"action": "HOST_NOT_FOUND",
+				}
+				conn.WriteJSON(res)
+				continue
+			}
 
 			mu.Lock()
+			sessionID := generateSessionID()
+			if _, ok := sessions[sessionID]; ok {
+				res := map[string]string{
+					"action": "SESSION_ID_EXIST",
+				}
+				conn.WriteJSON(res)
+				continue
+			}
 			sessions[sessionID] = Session{
 				ID:        sessionID,
 				Create_at: time.Now(),
@@ -91,22 +103,36 @@ func wsHandler(c echo.Context) error {
 
 		if msg["action"] == "JOIN_MEETING" {
 			sessionID := msg["sessionID"]
-
 			mu.Lock()
-			session := sessions[sessionID]
+			session, exists := sessions[sessionID]
+			mu.Unlock()
+		
+			if !exists {
+				res := map[string]string{
+					"action": "SESSION_NOT_FOUND",
+				}
+				conn.WriteJSON(res)
+				continue
+			}
+		
+			mu.Lock()
 			session.Members = append(session.Members, msg["member"])
 			sessions[sessionID] = session
 			mu.Unlock()
-
+		
 			res := map[string]string{
 				"action": "JOINING_MEET",
 			}
 			conn.WriteJSON(res)
 		}
 	}
+
+	return nil
 }
 
 func generateSessionID() string {
-	return fmt.Sprintf("%06d", rand.Intn(1000000))
-}
+	rand.Seed(uint64(time.Now().UnixNano()))
 
+	sessionID := fmt.Sprintf("%06d", rand.Intn(1000000))
+	return sessionID
+}

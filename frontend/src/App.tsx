@@ -5,7 +5,7 @@ function App() {
   const [meetURL, setMeetURL] = useState<string>("")
 
   useEffect(() => {
-    const socket = new WebSocket("ws://localhost:8000/ws")
+    const socket = new WebSocket("ws://localhost:8000/session")
 
     socket.onopen = () => {
       console.log("socket opened");
@@ -13,10 +13,13 @@ function App() {
 
     socket.onmessage = (e) => {
       const message = JSON.parse(e.data);
-      if (message.action == "MEETING_CREATED")
+      if (message.action == "MEETING_CREATED"){
+        console.log(message)
         setMeetURL(message.sessionURL)
-      else 
+      }
+      else
         console.error("Bad response from server cant create meeting")
+
     };
 
     socket.onerror = (error) => {
@@ -36,15 +39,16 @@ function App() {
 
   const createNewMeet = () => {
     if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
+      const msg = JSON.stringify({
         "action" : "CREATE_MEETING",
-        "host": createRandomYounes
-      }))
+        "host": createRandomYounes()
+      })
+      ws.send(msg)
     }
   }
 
   const createRandomYounes = () => {
-    const rand_num = Math.random()
+    const rand_num = Math.floor(Math.random() * 100)
     return "younes" + rand_num
   }
 

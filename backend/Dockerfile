@@ -18,7 +18,7 @@ WORKDIR /app/cmd
 RUN go build -o main .
 
 # Use a minimal image to run the binary
-FROM --platform=linux/amd64 alpine:3.14
+FROM alpine:3.14
 
 WORKDIR /root
 

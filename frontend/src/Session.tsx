@@ -4,19 +4,19 @@ const Session = () => {
   const [sessionExists, setSessionExists] = useState(false);
   const [cameraDevices, setCameraDevices] = useState<MediaDeviceInfo[]>([]);
   const [audioDevices, setAudioDevices] = useState<MediaDeviceInfo[]>([]);
+  const [selectedCamera, setSelectedCamera] = useState<string>("");
+  const [selectedAudio, setSelectedAudio] = useState<string>("");
 
-  // Fetch connected devices of a specific type
   const getConnectedDevices = async (type: string) => {
     const devices = await navigator.mediaDevices.enumerateDevices();
     return devices.filter((device) => device.kind === type);
   };
 
-  // Handle WebSocket connection
   useEffect(() => {
     const socket = new WebSocket("ws://localhost:8000/session");
 
     socket.onopen = () => {
-      console.log("socket opened");
+      console.log("Socket opened");
       const msg = JSON.stringify({
         action: "JOIN_MEETING",
         member: createRandomYounes(),
@@ -26,14 +26,18 @@ const Session = () => {
     };
 
     socket.onmessage = (e) => {
-      const message = JSON.parse(e.data);
-      if (message.action === "JOINING_MEET") {
-        console.log("New user joined the meeting");
-        setSessionExists(true);
-      } else if (message.action === "SESSION_NOT_FOUND") {
-        setSessionExists(false);
-      } else {
-        console.error("Bad response from server, can't join meeting");
+      try {
+        const message = JSON.parse(e.data);
+        if (message.action === "JOINING_MEET") {
+          console.log("New user joined the meeting");
+          setSessionExists(true);
+        } else if (message.action === "SESSION_NOT_FOUND") {
+          setSessionExists(false);
+        } else {
+          console.error("Unexpected server response:", message);
+        }
+      } catch (error) {
+        console.error("Error parsing WebSocket message:", error);
       }
     };
 
@@ -50,7 +54,6 @@ const Session = () => {
     };
   }, []);
 
-  // Handle media device changes
   useEffect(() => {
     const updateDeviceLists = async () => {
       try {
@@ -60,8 +63,15 @@ const Session = () => {
         ]);
         setCameraDevices(cameras);
         setAudioDevices(audios);
+
+        if (cameras.length > 0) {
+          setSelectedCamera(cameras[0].deviceId);
+        }
+        if (audios.length > 0) {
+          setSelectedAudio(audios[0].deviceId);
+        }
       } catch (error) {
-        console.error("Error updating devices:", error);
+        console.error("Error updating device lists:", error);
       }
     };
 
@@ -81,6 +91,44 @@ const Session = () => {
     };
   }, []);
 
+  useEffect(() => {
+    const openCamera = async (cameraId: string, minWidth: number, minHeight: number) => {
+      try {
+        const constraints = {
+          audio: { deviceId: selectedAudio ? { exact: selectedAudio } : undefined },
+          video: {
+            deviceId: cameraId,
+            width: { min: minWidth },
+            height: { min: minHeight },
+          },
+        };
+        return await navigator.mediaDevices.getUserMedia(constraints);
+      } catch (error) {
+        console.error("Error opening camera:", error);
+        throw error;
+      }
+    };
+
+    const playVideoFromCamera = async () => {
+      try {
+        if (selectedCamera) {
+          console.log("Playing video from camera:", selectedCamera);
+          const stream = await openCamera(selectedCamera, 1280, 720);
+          const videoElement = document.querySelector(
+            "video#localVideo"
+          ) as HTMLVideoElement;
+          if (videoElement) {
+            videoElement.srcObject = stream;
+          }
+        }
+      } catch (error) {
+        console.error("Error playing video from camera:", error);
+      }
+    };
+
+    playVideoFromCamera();
+  }, [selectedCamera, selectedAudio]);
+
   const createRandomYounes = () => {
     const rand_num = Math.floor(Math.random() * 100);
     return "younes" + rand_num;
@@ -94,6 +142,10 @@ const Session = () => {
     return <div className="p-10 text-red-500">No camera detected</div>;
   }
 
+  if (audioDevices.length === 0) {
+    return <div className="p-10 text-red-500">No audio device detected</div>;
+  }
+
   return (
     <div className="p-10">
       <div>Welcome to your session</div>
@@ -104,10 +156,12 @@ const Session = () => {
             className="text-black outline-none p-1"
             name="availableCameras"
             id="availableCameras"
+            value={selectedCamera}
+            onChange={(e) => setSelectedCamera(e.target.value)}
           >
             {cameraDevices.map((camera) => (
               <option key={camera.deviceId} value={camera.deviceId}>
-                {camera.label}
+                {camera.label || "Unnamed Camera"}
               </option>
             ))}
           </select>
@@ -118,15 +172,18 @@ const Session = () => {
             className="text-black outline-none p-1"
             name="availableAudio"
             id="availableAudio"
+            value={selectedAudio}
+            onChange={(e) => setSelectedAudio(e.target.value)}
           >
             {audioDevices.map((audio) => (
               <option key={audio.deviceId} value={audio.deviceId}>
-                {audio.label}
+                {audio.label || "Unnamed Audio Device"}
               </option>
             ))}
           </select>
         </div>
       </div>
+      <video className="py-2" id="localVideo" autoPlay playsInline controls={false} />
     </div>
   );
 };

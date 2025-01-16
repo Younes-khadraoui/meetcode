@@ -11,7 +11,7 @@ createRoot(document.getElementById("root")!).render(
     <Routes>
       <Route>
         <Route index element={<App />} />
-        <Route path=":sessionID" element={<Session/>} />
+        <Route path="/session/:sessionID" element={<Session />} />
       </Route>
     </Routes>
   </BrowserRouter>
